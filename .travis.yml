@@ -1,0 +1,50 @@
+group: vm
+sudo: false
+language: java
+jdk: openjdk11
+cache:
+  directories:
+  - "$HOME/.m2"
+
+stages:
+  - name: verify-solution
+    if: branch != master OR type = pull_request
+  - name: deploy
+    if: branch = master AND type = push
+
+env:
+  global:
+    # GH_SEC
+    - secure: ITlIwZU54gqm5H9dIdCkF3RWgm7crCqqWyOx4sBChAv4EynilRxUU5BBVzyxBAfQ70AhP+51/g48ByAzXztMhqXNsQeFE7DNWN1bxaRbrPFlvAAhAru4xeg0M+J1VwxqYzFA0mNPeEgmiEF0yBfMcUyw4cRKfh+ixcRsETpTb0k=
+
+before_install:
+  - sudo echo "deb https://${ARTIFACTORY_USER}:${ARTIFACTORY_PWD}@artifacts.schibsted.io/artifactory/debian-local trusty main" >> /etc/apt/sources.list
+  - sudo curl -f -u $ARTIFACTORY_USER:$ARTIFACTORY_PWD https://artifacts.schibsted.io/artifactory/api/gpg/key/public | sudo apt-key add -
+  - sudo apt update
+  - sudo apt --fix-broken install -y
+  - sudo apt install -y schibsted-code-ql
+install: echo "We believe in Schibsted."
+
+jobs:
+  include:
+    - stage: codeQL
+      script:
+        - echo $GH_SEC | codeql database create app_inv_db --language=java --github-auth-stdin
+        - echo $GH_SEC | codeql database analyze app_inv_db --format=sarifv2.1.0 --output=sarif.json --github-auth-stdin java-security-extended /var/lib/code-ql/schibsted-java.qls
+        - echo $GH_SEC | codeql github upload-results --repository=${TRAVIS_REPO_SLUG} --sarif=sarif.json --ref=refs/heads/${TRAVIS_PULL_REQUEST_BRANCH:-$TRAVIS_BRANCH} --github-url=https://github.schibsted.io --github-auth-stdin
+    - stage: verify-solution
+      script: mvn test
+    - script: ./checkstyle.sh
+    - stage: deploy
+      script: ./package.sh
+      deploy:
+        skip_cleanup: true
+        provider: s3
+        access_key_id: AKIAVQ5GEAO5YJWDPMXQ
+        secret_access_key:
+          secure: "BVJal1QiFM618gKORYdaBLTFd2Y2waJAq6SWk5bMJFkPlXnKMCzWatLHmnnZC+C8DY7kRKciPRteikDZhGfzxCL0Z6uEsLMbvNM/5fbOSGme2ShskGAD9aNdciGfU+RytjGtXd60D6wsXsUFUHUYWvekscJPygDrVB3Qm8Iu3m4="
+        bucket: plan3-recruitment-ql3bsz66-brxdxs
+        region: eu-west-1
+        acl: public_read
+        local_dir: deploy
+        glob: "*.zip"
