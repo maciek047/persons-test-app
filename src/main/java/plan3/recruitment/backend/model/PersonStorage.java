@@ -17,6 +17,11 @@ public interface PersonStorage {
     void save(final Person person);
 
     /**
+     * Update the given {@link Person} in this {@link PersonStorage}
+     */
+    void update(final Person person);
+
+    /**
      * Remove the given {@link Person}. Return {@code true} if the {@link Person} existed and was removed, {@code false}
      * if the person didn't exist
      */

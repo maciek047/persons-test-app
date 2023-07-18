@@ -1,5 +1,7 @@
 {
-    "firstname": "first",
-    "lastname": "last",
+    "name": {
+        "firstname": "first",
+        "lastname": "last"
+    },
     "email": "first@last.se"
 }
