@@ -1,7 +1,7 @@
 server:
   applicationConnectors:
     - type: http
-      port: 8090
+      port: 28444
   adminConnectors:
     - type: http
-      port: 8095
+      port: 28444
