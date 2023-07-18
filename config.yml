@@ -1,7 +1,7 @@
 server:
   applicationConnectors:
     - type: http
-      port: 28444
+      port: ${env:PORT}
   adminConnectors:
     - type: http
-      port: 28444
+      port: ${env:PORT}
