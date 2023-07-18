@@ -35,17 +35,14 @@ public class PersonsResourceTest {
 
     @Test
     public void listSortedOnLastname() {
-        final Person stefan = Person.valueOf("Stefan", "Petersson", "stefan@example.com");
-        final Person markus = Person.valueOf("Markus", "Gustavsson", "markus@example.com");
-        final Person ian = Person.valueOf("Ian", "Vännman", "ian@example.com");
-        final Person marten = Person.valueOf("Mårten", "Gustafson", "marten@example.com");
+        final Person stefan = createPerson("Stefan", "Petersson", "stefan@example.com");
+        final Person markus = createPerson("Markus", "Gustavsson", "markus@example.com");
+        final Person ian = createPerson("Ian", "Vännman", "ian@example.com");
+        final Person marten = createPerson("Mårten", "Gustafson", "marten@example.com");
 
-        storage.save(stefan);
-        storage.save(markus);
-        storage.save(ian);
-        storage.save(marten);
+        savePersons(stefan, markus, ian, marten);
 
-        final List<Person> actualPersons = RESOURCE_EXTENSION.target("/persons").request().get(new GenericType<List<Person>>() {
+        final List<Person> actualPersons = getRequest("/persons").readEntity(new GenericType<List<Person>>() {
         });
 
         final List<Person> expectedPersons = List.of(marten, markus, stefan, ian);
@@ -54,16 +51,16 @@ public class PersonsResourceTest {
 
     @Test
     public void readExistingPerson() {
-        final Person expectedPerson = Person.valueOf("Mårten", "Gustafson", "marten@example.com");
-        storage.save(expectedPerson);
+        final Person expectedPerson = createPerson("Mårten", "Gustafson", "marten@example.com");
+        savePersons(expectedPerson);
 
-        final Person actualPerson = RESOURCE_EXTENSION.target("/persons/marten@example.com").request().get(Person.class);
+        final Person actualPerson = getRequest("/persons/marten@example.com").readEntity(Person.class);
         assertEquals(expectedPerson, actualPerson);
     }
 
     @Test
     public void readNonExistentPerson() {
-        final Response response = RESOURCE_EXTENSION.target("/persons/user@example.com").request().get();
+        final Response response = getRequest("/persons/user@example.com");
 
         final int expectedRespStatus = HttpStatus.NOT_FOUND_404;
         assertEquals(expectedRespStatus, response.getStatus());
@@ -72,8 +69,8 @@ public class PersonsResourceTest {
     @Test
     public void createNewPerson() {
         String email = "marten@example.com";
-        final Person payload = Person.valueOf("Mårten", "Gustafson", email);
-        final Response response = RESOURCE_EXTENSION.target("/persons").request().post(Entity.json(payload));
+        final Person payload = createPerson("Mårten", "Gustafson", email);
+        final Response response = postRequest("/persons", payload);
 
         final int expectedRespStatus = HttpStatus.CREATED_201;
         assertEquals(expectedRespStatus, response.getStatus());
@@ -83,10 +80,10 @@ public class PersonsResourceTest {
 
     @Test
     public void createPersonThatAlreadyExists() {
-        final Person payload = Person.valueOf("Mårten", "Gustafson", "marten@example.com");
-        storage.save(payload);
+        final Person payload = createPerson("Mårten", "Gustafson", "marten@example.com");
+        savePersons(payload);
 
-        final Response response = RESOURCE_EXTENSION.target("/persons").request().post(Entity.json(payload));
+        final Response response = postRequest("/persons", payload);
 
         final int expectedRespStatus = HttpStatus.CONFLICT_409;
         assertEquals(expectedRespStatus, response.getStatus());
@@ -94,21 +91,20 @@ public class PersonsResourceTest {
 
     @Test
     public void updateExistingPerson() {
-        final Person originalPerson = Person.valueOf("Mårten", "Gustafson", "marten@example.com");
-        storage.save(originalPerson);
-        final Person payload = Person.valueOf("Mårten2", "Gustafson2", "marten@example.com");
+        final Person originalPerson = createPerson("Mårten", "Gustafson", "marten@example.com");
+        savePersons(originalPerson);
+        final Person payload = createPerson("Mårten2", "Gustafson2", "marten@example.com");
 
-        final Person actualPerson = RESOURCE_EXTENSION.target("/persons/marten@example.com").request()
-                .put(Entity.json(payload), Person.class);
+        final Person actualPerson = putRequest("/persons/marten@example.com", payload).readEntity(Person.class);
 
-        final Person expectedPerson = Person.valueOf("Mårten2", "Gustafson2", "marten@example.com");
+        final Person expectedPerson = createPerson("Mårten2", "Gustafson2", "marten@example.com");
         assertEquals(expectedPerson, actualPerson);
     }
 
     @Test
     public void updateNonExistentPerson() {
-        final Person payload = Person.valueOf("Mårten", "Gustafson", "marten@example.com");
-        final Response response = RESOURCE_EXTENSION.target("/persons/user@example.com").request().put(Entity.json(payload));
+        final Person payload = createPerson("Mårten", "Gustafson", "marten@example.com");
+        final Response response = putRequest("/persons/user@example.com", payload);
 
         final int expectedRespStatus = HttpStatus.NOT_FOUND_404;
         assertEquals(expectedRespStatus, response.getStatus());
@@ -116,9 +112,9 @@ public class PersonsResourceTest {
 
     @Test
     public void deleteExistingPerson() {
-        final Person payload = Person.valueOf("Mårten", "Gustafson", "marten@example.com");
-        storage.save(payload);
-        final Response response = RESOURCE_EXTENSION.target("/persons/marten@example.com").request().delete();
+        final Person payload = createPerson("Mårten", "Gustafson", "marten@example.com");
+        savePersons(payload);
+        final Response response = deleteRequest("/persons/marten@example.com");
 
         final int expectedRespStatus = HttpStatus.NO_CONTENT_204;
         assertEquals(expectedRespStatus, response.getStatus());
@@ -126,9 +122,36 @@ public class PersonsResourceTest {
 
     @Test
     public void deleteNonExistentPerson() {
-        final Response response = RESOURCE_EXTENSION.target("/persons/user@example.com").request().delete();
+        final Response response = deleteRequest("/persons/user@example.com");
 
         final int expectedRespStatus = HttpStatus.NOT_FOUND_404;
         assertEquals(expectedRespStatus, response.getStatus());
     }
+
+    private void savePersons(Person... persons) {
+        for (Person person : persons) {
+            storage.save(person);
+        }
+    }
+
+    private Person createPerson(String firstName, String lastName, String email) {
+        return Person.valueOf(firstName, lastName, email);
+    }
+
+    private Response getRequest(String target) {
+        return RESOURCE_EXTENSION.target(target).request().get();
+    }
+
+    private Response postRequest(String target, Person payload) {
+        return RESOURCE_EXTENSION.target(target).request().post(Entity.json(payload));
+    }
+
+    private Response putRequest(String target, Person payload) {
+        return RESOURCE_EXTENSION.target(target).request().put(Entity.json(payload));
+    }
+
+    private Response deleteRequest(String target) {
+        return RESOURCE_EXTENSION.target(target).request().delete();
+    }
+
 }
