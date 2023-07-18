@@ -1,7 +1,7 @@
 server:
   applicationConnectors:
     - type: http
-      port: ${PORT}
+      port: 8080
   adminConnectors:
     - type: http
-      port: ${PORT}
+      port: 8080
